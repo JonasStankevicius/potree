@@ -1,0 +1,51 @@
+<html>
+
+<head>
+	<!-- <link rel="stylesheet" type="text/css" href="progress_style.css"> -->
+	<!-- <link rel="shortcut icon" href="favicon.ico"> -->
+	<!-- <link rel="shortcut icon"> -->
+	<!-- <link rel="shortcut icon" href="#"> -->
+	<!-- <script type="text/javascript" src="jquery.js"></script>
+	<script type="text/javascript" src="jquery.form.js"></script>
+	<script type="text/javascript" src="upload_progress.js"></script> -->
+
+	<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.11/uploadfile.css" rel="stylesheet">
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+	<script src="http://hayageek.github.io/jQuery-Upload-File/4.0.11/jquery.uploadfile.min.js"></script>
+</head>
+
+<!-- <body>
+	<form action="upload_file.php" id="myForm" name="frmupload" method="post" enctype="multipart/form-data">
+		<input type="file" id="upload_file" name="upload_file" />
+		<input type="submit" name='submit_image' value="Submit" onclick='upload_image();' />
+	</form>
+	<div class='progress' id="progress_div">
+		<div class='bar' id='bar1'></div>
+		<div class='percent' id='percent1'>0%</div>
+	</div>
+	<div id="fileuploader">Upload</div>
+	<div id='output_image'>
+</body> -->
+
+<body>
+	<div id="fileuploader">Upload</div>
+	<div id='status'></div>
+</body>
+
+<script>
+	$(document).ready(function () {
+		$("#fileuploader").uploadFile({
+			url: "upload_file.php",
+			fileName: "upload_file",
+			acceptFiles: "*.las",
+			onSuccess: function (file_name, data, xhr, pd) {
+				document.getElementById("status").innerHTML = `Upload complete. Now visualize 'uploads/${file_name}_converted/metadata.json'`;
+
+
+			},
+		});
+	});
+
+</script>
+
+</html>

@@ -7,6 +7,8 @@ const fs = require("fs");
 const fsp = fs.promises;
 const concat = require('gulp-concat');
 const connect = require('gulp-connect');
+const connectPHP = require('gulp-connect-php');
+// const browserSync = require('browser-sync');
 const {watch} = gulp;
 
 const {createExamplesPage} = require("./src/tools/create_potree_page");
@@ -80,8 +82,33 @@ gulp.task('webserver', gulp.series(async function() {
 	server = connect.server({
 		port: 1234,
 		https: false,
+		debug: true,
 	});
 }));
+
+gulp.task('webserverPHP', gulp.series(async function () {
+	server = connectPHP.server({
+		port: 1235,
+		https: false,
+		debug: true,
+	});
+}));
+
+// gulp.task('webserver', gulp.series(async function () {
+// 	connect.server({}, function () {
+// 		browserSync({
+// 			// server: {
+// 			// 	baseDir: "app",
+// 			// 	// index: "/index.php"
+// 			// },
+// 			proxy: '127.0.0.1:8000'
+// 		});
+// 	});
+
+// 	gulp.watch(['**/*.php', '**/*.html', '**/*.js']).on('change', function () {
+// 		browserSync.reload();
+// 	});
+// }));
 
 gulp.task('examples_page', async function(done) {
 	await Promise.all([
@@ -180,7 +207,7 @@ gulp.task("pack", async function(){
 	});
 });
 
-gulp.task('watch', gulp.parallel("build", "pack", "webserver", async function() {
+gulp.task('watch', gulp.parallel("build", "pack", "webserver", "webserverPHP", async function() {
 
 	let watchlist = [
 		'src/**/*.js',
