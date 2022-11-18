@@ -27,6 +27,7 @@
 	<script src="../libs/jstree/jstree.js"></script>
 	<script src="../build/potree/potree.js"></script>
 	<script src="../libs/plasio/js/laslaz.js"></script>
+	<script src="../libs/shapefile/shapefile.js"></script>
 	
 	<!-- INCLUDE ADDITIONAL DEPENDENCIES HERE -->
 	<!-- INCLUDE SETTINGS HERE -->
@@ -44,67 +45,66 @@
 		import {LineMaterial} from "../libs/three.js/lines/LineMaterial.js";
 	
 		window.viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+
+		viewer.setServer("http://localhost:3000");
 		
 		viewer.setEDLEnabled(true);
 		viewer.setFOV(60);
-		viewer.setPointBudget(1_000_000);
+		viewer.setPointBudget(3_000_000);
 		viewer.loadSettingsFromURL();
 		
-		viewer.setDescription("Point cloud courtesy of <a target='_blank' href='https://www.sigeom.ch/'>sigeom sa</a>");
+		viewer.setDescription("Line extraction results");
 		
 		viewer.loadGUI(() => {
 			viewer.setLanguage('en');
-			$("#menu_tools").next().show();
-			//viewer.toggleSidebar();
+			// $("#menu_tools").next().show();
+			// $("#menu_scene").next().show();
+			viewer.toggleSidebar();
+
+			let section = $(`
+				<h3 id="menu_upload" class="accordion-header ui-widget"><span>Upload point cloud</span></h3>
+				<div class="accordion-content ui-widget pv-menu-list"></div>
+			`);
+			let content = section.last();
+			content.html(`
+				<form action="/upload" method="post" enctype="multipart/form-data">
+					<input type="file" name="files"
+					class="btn btn-primary" id="file"
+					multiple>
+					<button class="btn btn-primary" type="submit" style="border-radius: 4px;">
+						Upload
+					</button>
+				</form>
+			`);
+
+			section.first().click(() => content.slideToggle());
+			section.insertBefore($('#menu_appearance'));
 		});
 		
-		// Sigeom
-		
-		Potree.loadPointCloud("../pointclouds/vol_total/cloud.js", "sigeom.sa", function(e){
+		let url = "../uploads/kambarys_converted/metadata.json"
+		//let curbs_file = "../pointclouds/park_converted/shape/curbs.shp"
+		//let powerlines_file = "../pointclouds/park_converted/shape/powerlines.shp"
+		//let roadmarkings_file = "../pointclouds/park_converted/shape/roadmarkings.shp"
+
+		Potree.loadPointCloud(url, "Park", async e => {
 			let scene = viewer.scene;
-			// scene.addPointCloud(e.pointcloud);
+			let pointcloud = e.pointcloud;
+			let material = pointcloud.material;
+			scene.addPointCloud(pointcloud);
 			
-			let material = e.pointcloud.material;
 			material.size = 1;
-			material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
-						
-			// scene.view.position.set(589974.341, 231698.397, 986.146);
-			// scene.view.lookAt(new THREE.Vector3(589851.587, 231428.213, 715.634));
-			// viewer.fitToScreen();
+			material.pointSizeType = Potree.PointSizeType.FIXED;						
+			
+			viewer.fitToScreen();
+
+			{ 
+				const resolution = new THREE.Vector2(1000, 1000);
+
+				viewer.addEventListener("update", () => {
+					viewer.renderer.getSize(resolution);					
+				});
+			}
 		});
-		
-		{ // add a polyline
-			let path = [
-				590058.52, 231354.16, 766.42,
-				589941.68, 231476.67, 736.52,
-				589781.32, 231491.91, 757.73,
-				589711.88, 231445.56, 768.16,
-				589702.04, 231336.49, 772.91
-			];
-
-			let lineGeometry = new LineGeometry();
-
-			lineGeometry.setPositions(path);
-
-			let lineMaterial = new LineMaterial({ 
-				color: 0x00ff00, 
-				dashSize: 5, 
-				gapSize: 2,
-				linewidth: 2, 
-				resolution:  new THREE.Vector2(1000, 1000),
-			});
-
-			viewer.addEventListener("update", () => {
-				viewer.renderer.getSize(lineMaterial.resolution);				
-			});
-
-			const line = new Line2(lineGeometry, lineMaterial);
-			viewer.scene.scene.add(line);			
-
-			viewer.scene.view.position.set(589974.341, 231698.397, 986.146);
-			viewer.scene.view.lookAt(new THREE.Vector3(589851.587, 231428.213, 715.634));
-			// viewer.fitToScreen();
-		}
 		
 	</script>
 	

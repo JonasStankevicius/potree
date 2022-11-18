@@ -1,50 +1,115 @@
 <html>
 
-<head>
-	<!-- <link rel="stylesheet" type="text/css" href="progress_style.css"> -->
-	<!-- <link rel="shortcut icon" href="favicon.ico"> -->
-	<!-- <link rel="shortcut icon"> -->
-	<!-- <link rel="shortcut icon" href="#"> -->
-	<!-- <script type="text/javascript" src="jquery.js"></script>
-	<script type="text/javascript" src="jquery.form.js"></script>
-	<script type="text/javascript" src="upload_progress.js"></script> -->
-
-	<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.11/uploadfile.css" rel="stylesheet">
-	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-	<script src="http://hayageek.github.io/jQuery-Upload-File/4.0.11/jquery.uploadfile.min.js"></script>
+<head>	
+	<link rel="stylesheet" href="uploadfile.css">
+	<script type="text/javascript" src="jquery.min.js"></script>
+	<script type="text/javascript" src="jquery.uploadfile.min.js"></script>
+	<link rel="shortcut icon" href="#" />
 </head>
-
-<!-- <body>
-	<form action="upload_file.php" id="myForm" name="frmupload" method="post" enctype="multipart/form-data">
-		<input type="file" id="upload_file" name="upload_file" />
-		<input type="submit" name='submit_image' value="Submit" onclick='upload_image();' />
-	</form>
-	<div class='progress' id="progress_div">
-		<div class='bar' id='bar1'></div>
-		<div class='percent' id='percent1'>0%</div>
-	</div>
-	<div id="fileuploader">Upload</div>
-	<div id='output_image'>
-</body> -->
 
 <body>
 	<div id="fileuploader">Upload</div>
 	<div id='status'></div>
+	<div id="feed"></div>
 </body>
 
 <script>
+	let processing_done = false;
+	let processing_file_name = "";
+
+	function clear_progress_log() {
+		$.ajax({
+			type: "POST",  //type of method
+			url: "clear_progress_log.php",  //your page
+			async: false,
+			success: function (res) {
+				// done
+			}
+		});
+	}
+	
+	function on_processing_done() {
+		document.getElementById("status").innerHTML = `Upload complete. <br>  
+		<a id="openlink" href="/examples/inference_result.html?url=../uploads/${processing_file_name}_converted/metadata.json" onclick="javascript:event.target.port=81">Now visualize 'uploads/${processing_file_name}_converted/metadata.json"</a>`;
+		clear_progress_log();
+	}
+
 	$(document).ready(function () {
 		$("#fileuploader").uploadFile({
 			url: "upload_file.php",
 			fileName: "upload_file",
 			acceptFiles: "*.las",
 			onSuccess: function (file_name, data, xhr, pd) {
-				document.getElementById("status").innerHTML = `Upload complete. <br>
-				<a id="openlink" href="/examples/lion_las.html?url=../uploads/${file_name}_converted/metadata.json" onclick="javascript:event.target.port=1234">Now visualize 'uploads/${file_name}_converted/metadata.json"</a>`;
+
+				clear_progress_log();
+				
+				$.ajax({
+					type: "POST",  //type of method
+					url: "convert_file.php",  //your page
+					data: { file_name: file_name[0]},// passing the values
+					success: function (res) {
+						processing_file_name = file_name;
+					}
+				});
+
+				tc()
 			},
 		});
 	});
 
+	var refreshtime = 50;
+	function tc() {		
+		if (processing_done != true){
+			asyncAjax("GET", "myphpfile.php", Math.random(), display, {});
+			setTimeout(tc, refreshtime);
+		}
+		else{
+			document.getElementById("feed").innerHTML = "";
+		}
+	}
+	function display(xhr, cdat) {
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			var percent = parseInt(xhr.responseText);
+			if(xhr.responseText == ""){
+				document.getElementById("feed").innerHTML = `Processing starting.`;
+			}
+			else if(Number.isNaN(percent)){
+				document.getElementById("feed").innerHTML = xhr.responseText;	
+			}
+			else if(percent == 100){
+				processing_done = true;
+				on_processing_done();
+			}
+			else{
+				document.getElementById("feed").innerHTML = `Processing ${percent}% done.`;	
+			}			
+		}
+	}
+	function asyncAjax(method, url, qs, callback, callbackData) {
+		var xmlhttp = new XMLHttpRequest();
+		//xmlhttp.cdat=callbackData;
+		if (method == "GET") {
+			url += "?" + qs;
+		}
+		var cb = callback;
+		callback = function () {
+			var xhr = xmlhttp;
+			//xhr.cdat=callbackData;
+			var cdat2 = callbackData;
+			cb(xhr, cdat2);
+			return;
+		}
+		// xmlhttp.open(method, url, true);
+		xmlhttp.open(method, url, false);
+		xmlhttp.onreadystatechange = callback;
+		if (method == "POST") {
+			xmlhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			xmlhttp.send(qs);
+		}
+		else {
+			xmlhttp.send(null);
+		}
+	}
 </script>
 
 </html>

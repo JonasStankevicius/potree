@@ -1,0 +1,1 @@
+first arg: /mnt/c/git_repos/potree/uploads/park.las, second arg: /mnt/c/git_repos/potree/uploads/park.las_converted

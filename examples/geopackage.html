@@ -73,8 +73,9 @@
 				const params = {
 					transform: proj4("WGS84", "pointcloud"),
 				};
-
-				const url = "./morro_bay_shp/gpkg/geopackage.gpkg";
+				
+				<!-- const url = "./morro_bay_shp/gpkg/geopackage.gpkg"; -->
+				const url = "http://potree.org/potree/examples/morro_bay_shp/gpkg/geopackage.gpkg";
 				const geopackage = await Potree.GeoPackageLoader.loadUrl(url, params);
 				viewer.scene.addGeopackage(geopackage);
 			}

@@ -1,0 +1,1 @@
+full_file_path = /mnt/c/git_repos/potree/uploads/park.lasoutput_folder = /mnt/c/git_repos/potree/uploads/park.las_converted

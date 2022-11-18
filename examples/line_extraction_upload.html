@@ -1,105 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta name="description" content="">
-	<meta name="author" content="">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-	<title>Potree Viewer</title>
+<body>	
 
-	<link rel="stylesheet" type="text/css" href="../build/potree/potree.css">
-	<link rel="stylesheet" type="text/css" href="../libs/jquery-ui/jquery-ui.min.css">
-	<link rel="stylesheet" type="text/css" href="../libs/openlayers3/ol.css">
-	<link rel="stylesheet" type="text/css" href="../libs/spectrum/spectrum.css">
-	<link rel="stylesheet" type="text/css" href="../libs/jstree/themes/mixed/style.css">
-
-	<meta charset="utf-8">
-	<title>Node.js Simple File Upload</title>
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css">
-	<style>
-		#uploadForm{
-			padding-top: 20px;
-			display: flex;
-			justify-content: space-between;
-		}
-		input.btn{
-			flex: 0.8;
-		}
-		button.btn{
-			flex: 0.15;
-		}
-	</style>
-</head>
-
-<body>
-	<script src="../libs/jquery/jquery-3.1.1.min.js"></script>
-	<script src="../libs/spectrum/spectrum.js"></script>
-	<script src="../libs/jquery-ui/jquery-ui.min.js"></script>
-	<script src="../libs/other/BinaryHeap.js"></script>
-	<script src="../libs/tween/tween.min.js"></script>
-	<script src="../libs/d3/d3.js"></script>
-	<script src="../libs/proj4/proj4.js"></script>
-	<script src="../libs/openlayers3/ol.js"></script>
-	<script src="../libs/i18next/i18next.js"></script>
-	<script src="../libs/jstree/jstree.js"></script>
-	<script src="../build/potree/potree.js"></script>
-	<script src="../libs/plasio/js/laslaz.js"></script>
-	<script src="../libs/shapefile/shapefile.js"></script>
-	
-	<!-- INCLUDE ADDITIONAL DEPENDENCIES HERE -->
-	<!-- INCLUDE SETTINGS HERE -->
-	
-
-	<div class="container">
-		<form action="/upload" method="post" enctype="multipart/form-data">
-			<input type="file" name="files"
-			class="btn btn-primary" id="file"
-			multiple>
-			<button class="btn btn-primary" type="submit" style="border-radius: 4px;">
-				Upload
-			</button>
-		</form>
-	</div>
+	<form class="form" id="myForm" name="my_form">
+		<input type="file" id="inpFile"><br>
+		<button type="submit">Upload File</button>
+	</form>
 	
 	<script type="module">
 
-		document.getElementById("file").value = "";
+		var myForm = document.getElementsByName("my_form")[0];
+		const inpFile = document.getElementById("inpFile");
 
-		var express = require('express');
-		var multer  = require('multer');
-		var fs  = require('fs');
+		myForm.addEventListener("submit", e => {
+			e.preventDefault();
 
-		var app = express();
-		app.set('view engine', 'ejs');
+			const endpoint = "upload.php";
+			const formData = new FormData();
 
-		app.get('/', (req, res) => {
-			res.render('index');
+			formData.append("inpFile", inpFile.files[0]);
+
+			fetch(endpoint, {
+				method: "post",
+				body: formData
+			}).catch(console.error);
+
 		});
-
-		var storage = multer.diskStorage({
-			destination: function (req, file, callback) {
-				var dir = './uploads';
-				if (!fs.existsSync(dir)){
-					fs.mkdirSync(dir);
-				}
-				callback(null, dir);
-			},
-			filename: function (req, file, callback) {
-				callback(null, file.originalname);
-			}
-		});
-		var upload = multer({storage: storage}).array('files', 12);
-		app.post('/upload', function (req, res, next) {
-			upload(req, res, function (err) {
-				if (err) {
-					return res.end("Something went wrong:(");
-				}
-				res.end("Upload completed.");
-			});
-		})
-
-		app.listen(1234);
-
 		
 	</script>
 	

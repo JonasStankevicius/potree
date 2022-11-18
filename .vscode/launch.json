@@ -1,0 +1,12 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "pwa-chrome",
+			"request": "launch",
+			"trace": true,
+			"name": "Open show_uploaded_cloud.html",
+			"file": "http://localhost:3000/examples/show_uploaded_cloud.html"
+		},
+	]
+}
