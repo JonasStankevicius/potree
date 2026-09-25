@@ -201,6 +201,30 @@ export class BoxVolume extends Volume{
 		return Math.abs(this.scale.x * this.scale.y * this.scale.z);
 	}
 
+	clone(){
+		const clone = new BoxVolume({
+			clip: this.clip,
+			modifiable: this.modifiable
+		});
+
+		clone.position.copy(this.position);
+		clone.rotation.copy(this.rotation);
+		clone.scale.copy(this.scale);
+
+		clone.box.geometry = this.box.geometry.clone();
+		clone.material = this.material.clone();
+
+		clone.box.visible = this.box.visible;
+		clone.label.visible = this.label.visible;
+
+		clone.boundingBox = this.boundingBox.clone();
+		clone.boundingSphere = this.boundingSphere.clone();
+
+		clone.class = this.class;
+
+		return clone;
+	}
+
 };
 
 export class SphereVolume extends Volume{

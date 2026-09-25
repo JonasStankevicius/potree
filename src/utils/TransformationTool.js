@@ -625,9 +625,9 @@ export class TransformationTool {
 
 				for (let selection of this.selection) {
 					selection.scale.add(diffScale);
-					selection.scale.x = Math.max(0.1, selection.scale.x);
-					selection.scale.y = Math.max(0.1, selection.scale.y);
-					selection.scale.z = Math.max(0.1, selection.scale.z);
+					selection.scale.x = Math.max(0.0001, selection.scale.x);
+					selection.scale.y = Math.max(0.0001, selection.scale.y);
+					selection.scale.z = Math.max(0.0001, selection.scale.z);
 					selection.position.add(diffPosition);
 					selection.dispatchEvent({
 						type: "position_changed",

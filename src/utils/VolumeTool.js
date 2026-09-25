@@ -59,8 +59,13 @@ export class VolumeTool extends EventDispatcher{
 
 	startInsertion (args = {}) {
 		let volume;
+		let copied = false;
 		if(args.type){
 			volume = new args.type();
+		}else if(Array.isArray(args) && args.length === 1 && args[0] instanceof BoxVolume){
+			// duplicate the currently selected box instead of drawing a new one
+			volume = args[0].clone();
+			copied = true;
 		}else{
 			volume = new BoxVolume();
 		}
@@ -76,48 +81,52 @@ export class VolumeTool extends EventDispatcher{
 		this.viewer.scene.addVolume(volume);
 		this.scene.add(volume);
 
-		let cancel = {
-			callback: null
-		};
+		// a cloned box keeps the size and placement of its original, so it is
+		// dropped in as-is rather than being dragged out under the cursor
+		if(!copied){
+			let cancel = {
+				callback: null
+			};
 
-		let drag = e => {
-			let camera = this.viewer.scene.getActiveCamera();
-			
-			let I = Utils.getMousePointCloudIntersection(
-				e.drag.end, 
-				this.viewer.scene.getActiveCamera(), 
-				this.viewer, 
-				this.viewer.scene.pointclouds, 
-				{pickClipped: false});
+			let drag = e => {
+				let camera = this.viewer.scene.getActiveCamera();
 
-			if (I) {
-				volume.position.copy(I.location);
+				let I = Utils.getMousePointCloudIntersection(
+					e.drag.end, 
+					this.viewer.scene.getActiveCamera(), 
+					this.viewer, 
+					this.viewer.scene.pointclouds, 
+					{pickClipped: false});
 
-				let wp = volume.getWorldPosition(new THREE.Vector3()).applyMatrix4(camera.matrixWorldInverse);
-				// let pp = new THREE.Vector4(wp.x, wp.y, wp.z).applyMatrix4(camera.projectionMatrix);
-				let w = Math.abs((wp.z / 5));
-				volume.scale.set(w, w, w);
-			}
-		};
+				if (I) {
+					volume.position.copy(I.location);
 
-		let drop = e => {
-			volume.removeEventListener('drag', drag);
-			volume.removeEventListener('drop', drop);
+					let wp = volume.getWorldPosition(new THREE.Vector3()).applyMatrix4(camera.matrixWorldInverse);
+					// let pp = new THREE.Vector4(wp.x, wp.y, wp.z).applyMatrix4(camera.projectionMatrix);
+					let w = Math.abs((wp.z / 5));
+					volume.scale.set(w, w, w);
+				}
+			};
 
-			cancel.callback();
-		};
+			let drop = e => {
+				volume.removeEventListener('drag', drag);
+				volume.removeEventListener('drop', drop);
 
-		cancel.callback = e => {
-			volume.removeEventListener('drag', drag);
-			volume.removeEventListener('drop', drop);
-			this.viewer.removeEventListener('cancel_insertions', cancel.callback);
-		};
+				cancel.callback();
+			};
 
-		volume.addEventListener('drag', drag);
-		volume.addEventListener('drop', drop);
-		this.viewer.addEventListener('cancel_insertions', cancel.callback);
+			cancel.callback = e => {
+				volume.removeEventListener('drag', drag);
+				volume.removeEventListener('drop', drop);
+				this.viewer.removeEventListener('cancel_insertions', cancel.callback);
+			};
 
-		this.viewer.inputHandler.startDragging(volume);
+			volume.addEventListener('drag', drag);
+			volume.addEventListener('drop', drop);
+			this.viewer.addEventListener('cancel_insertions', cancel.callback);
+
+			this.viewer.inputHandler.startDragging(volume);
+		}
 
 		return volume;
 	}
@@ -148,7 +157,25 @@ export class VolumeTool extends EventDispatcher{
 			let calculatedVolume = volume.getVolume();
 			calculatedVolume = calculatedVolume / Math.pow(this.viewer.lengthUnit.unitspermeter, 3) * Math.pow(this.viewer.lengthUnitDisplay.unitspermeter, 3);  //convert to cubic meters then to the cubic display unit
 			let text = Utils.addCommas(calculatedVolume.toFixed(3)) + ' ' + this.viewer.lengthUnitDisplay.code + '\u00B3';
-			label.setText(text);
+			if(volume.name !== 'Volume'){
+				text = volume.name;
+			}
+			// volume labels are suppressed while labelling; the name is shown in the sidebar
+			// label.setText(text);
+			label.setText('');
+
+			if(volume.box && volume.frame){
+				// near-transparent fill so the points inside stay readable
+				volume.box.material.opacity = 0.05;
+
+				// yellow frame, thick enough to pick out against the point cloud
+				volume.frame.material.color.setRGB(1, 1, 0);
+				volume.frame.material.linewidth = 10;
+
+				if(volume.color){
+					volume.frame.material.color = new THREE.Color(volume.color);
+				}
+			}
 		}
 	}
 

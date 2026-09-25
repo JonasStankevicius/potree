@@ -217,7 +217,7 @@ export class Sidebar{
 			Potree.resourcePath + '/icons/volume.svg',
 			'[title]tt.volume_measurement',
 			() => {
-				let volume = this.volumeTool.startInsertion(); 
+				let volume = this.volumeTool.startInsertion(this.viewer.inputHandler.selection); 
 
 				let measurementsRoot = $("#jstree_scene").jstree().get_json("measurements");
 				let jsonNode = measurementsRoot.children.find(child => child.data.uuid === volume.uuid);
@@ -312,7 +312,7 @@ export class Sidebar{
 				Export: <br>
 				<a href="#" download="measure.json"><img name="geojson_export_button" src="${geoJSONIcon}" class="button-icon" style="height: 24px" /></a>
 				<a href="#" download="measure.dxf"><img name="dxf_export_button" src="${dxfIcon}" class="button-icon" style="height: 24px" /></a>
-				<a href="#" download="potree.json5"><img name="potree_export_button" src="${potreeIcon}" class="button-icon" style="height: 24px" /></a>
+				<a href="#" download="potree.json"><img name="potree_export_button" src="${potreeIcon}" class="button-icon" style="height: 24px" /></a>
 			`);
 
 			let elDownloadJSON = elExport.find("img[name=geojson_export_button]").parent();
@@ -351,7 +351,7 @@ export class Sidebar{
 			elDownloadPotree.click( (event) => {
 
 				let data = Potree.saveProject(this.viewer);
-				let dataString = JSON5.stringify(data, null, "\t")
+				let dataString = JSON.stringify(data, null, "\t")
 
 				let url = window.URL.createObjectURL(new Blob([dataString], {type: 'data:application/octet-stream'}));
 				elDownloadPotree.attr('href', url);

@@ -129,6 +129,7 @@ function loadVolume(viewer, data){
 	volume.scale.set(...data.scale);
 	volume.visible = data.visible;
 	volume.clip = data.clip;
+	volume.class = data.class;
 
 	viewer.scene.addVolume(volume);
 }
