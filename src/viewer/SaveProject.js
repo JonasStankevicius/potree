@@ -116,6 +116,8 @@ function createMeasurementData(measurement){
 		showCircle: measurement.showCircle,
 		showAzimuth: measurement.showAzimuth,
 		showEdges: measurement.showEdges,
+		maxMarkers: Number.isFinite(measurement.maxMarkers) ? measurement.maxMarkers : null,
+		class: measurement.class,
 		color: measurement.color.toArray(),
 	};
 

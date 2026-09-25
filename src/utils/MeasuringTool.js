@@ -4,6 +4,21 @@ import {Measure} from "./Measure.js";
 import {Utils} from "../utils.js";
 import {CameraMode} from "../defines.js";
 import { EventDispatcher } from "../EventDispatcher.js";
+import {KeyCodes} from "../KeyCodes.js";
+
+// Markers snap to the nearest point in the cloud, which often lands a little off
+// the feature being measured. Arrow keys and PageUp/PageDown shift the hovered
+// marker by this much, in scene units - one centimetre for metre-based projections.
+const MARKER_NUDGE = 0.01;
+
+const MARKER_NUDGE_KEYS = {
+	[KeyCodes.LEFT]:      [-MARKER_NUDGE, 0, 0],
+	[KeyCodes.RIGHT]:     [ MARKER_NUDGE, 0, 0],
+	[KeyCodes.BOTTOM]:    [0, -MARKER_NUDGE, 0],
+	[KeyCodes.UP]:        [0,  MARKER_NUDGE, 0],
+	[KeyCodes.PAGE_DOWN]: [0, 0, -MARKER_NUDGE],
+	[KeyCodes.PAGE_UP]:   [0, 0,  MARKER_NUDGE],
+};
 
 function updateAzimuth(viewer, measure){
 
@@ -144,6 +159,12 @@ export class MeasuringTool extends EventDispatcher{
 		this.onRemove = (e) => { this.scene.remove(e.measurement);};
 		this.onAdd = e => {this.scene.add(e.measurement);};
 
+		this.onKeyDown = (e) => {
+			this.deleteHoveredMarker(e);
+			this.nudgeHoveredMarker(e);
+		};
+		this.viewer.inputHandler.addEventListener('keydown', this.onKeyDown);
+
 		for(let measurement of viewer.scene.measurements){
 			this.onAdd({measurement: measurement});
 		}
@@ -164,6 +185,89 @@ export class MeasuringTool extends EventDispatcher{
 
 		e.scene.addEventListener('measurement_added', this.onAdd);
 		e.scene.addEventListener('measurement_removed', this.onRemove);
+	}
+
+	// The marker under the cursor as {measure, index}, or null. Mid-insertion the
+	// last marker is stuck to the cursor, and editing it there would fight with the
+	// insertion handler, so nothing is reported while dragging.
+	findHoveredMarker (accept) {
+		if(this.viewer.inputHandler.drag){
+			return null;
+		}
+
+		const hovered = this.viewer.inputHandler.hoveredElements.map(el => el.object);
+		if(hovered.length === 0){
+			return null;
+		}
+
+		for(const measure of this.viewer.scene.measurements){
+			if(accept && !accept(measure)){
+				continue;
+			}
+
+			const index = measure.spheres.findIndex(sphere => hovered.includes(sphere));
+			if(index !== -1){
+				return {measure, index};
+			}
+		}
+
+		return null;
+	}
+
+	// DEL / BACKSPACE removes the vertex currently under the cursor. Dropping below
+	// two points would leave a measurement that is no longer a line, so the whole
+	// measurement goes instead.
+	deleteHoveredMarker (e) {
+		if(e.keyCode !== KeyCodes.DELETE && e.keyCode !== KeyCodes.BACKSPACE){
+			return;
+		}
+
+		// Only free polylines (distance, area). Angle, height, circle and azimuth are
+		// defined by a fixed vertex count and would be left invalid. Measurements built
+		// by the tool use Infinity, those restored from a project use the Measure
+		// default, so test against both.
+		const isPolyline = measure => measure.maxMarkers >= Number.MAX_SAFE_INTEGER;
+
+		const target = this.findHoveredMarker(isPolyline);
+		if(target === null){
+			return;
+		}
+
+		if(target.measure.points.length > 2){
+			target.measure.removeMarker(target.index);
+		}else{
+			this.viewer.scene.removeMeasurement(target.measure);
+		}
+
+		if(e.event){
+			e.event.preventDefault();
+		}
+	}
+
+	// Arrow keys and PageUp/PageDown shift the hovered marker off the point it
+	// snapped to. Applies to every measurement type, since moving a vertex never
+	// invalidates one.
+	nudgeHoveredMarker (e) {
+		const offset = MARKER_NUDGE_KEYS[e.keyCode];
+		if(offset === undefined){
+			return;
+		}
+
+		const target = this.findHoveredMarker();
+		if(target === null){
+			return;
+		}
+
+		const position = target.measure.points[target.index].position
+			.clone()
+			.add(new THREE.Vector3(...offset));
+
+		target.measure.setPosition(target.index, position);
+
+		if(e.event){
+			// otherwise the browser scrolls the page under the viewer
+			e.event.preventDefault();
+		}
 	}
 
 	startInsertion (args = {}) {

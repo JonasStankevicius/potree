@@ -301,6 +301,18 @@ export class Measure extends THREE.Object3D {
 
 		this.sphereGeometry = new THREE.SphereGeometry(0.4, 10, 10);
 		this.color = new THREE.Color(0xff0000);
+		this.selected = false;
+
+		// Having select/deselect listeners is also what makes the InputHandler treat
+		// a measurement as selectable in the first place.
+		this.addEventListener('select', () => {
+			this.selected = true;
+			this.update();
+		});
+		this.addEventListener('deselect', () => {
+			this.selected = false;
+			this.update();
+		});
 
 		this.spheres = [];
 		this.edges = [];
@@ -484,6 +496,8 @@ export class Measure extends THREE.Object3D {
 
 		this.remove(this.edgeLabels[edgeIndex]);
 		this.edgeLabels.splice(edgeIndex, 1);
+
+		this.remove(this.coordinateLabels[index]);
 		this.coordinateLabels.splice(index, 1);
 
 		this.remove(this.angleLabels[index]);
@@ -663,7 +677,11 @@ export class Measure extends THREE.Object3D {
 				edge.geometry.computeBoundingSphere();
 				edge.computeLineDistances();
 				edge.visible = index < lastIndex || this.closed;
-				
+
+				// thicker outline marks the selected measurement, leaving the colour
+				// free to carry the assigned class
+				edge.material.linewidth = this.selected ? 5 : 2;
+
 				if(!this.showEdges){
 					edge.visible = false;
 				}
@@ -835,20 +853,36 @@ export class Measure extends THREE.Object3D {
 	};
 
 	raycast (raycaster, intersects) {
-		for (let i = 0; i < this.points.length; i++) {
-			let sphere = this.spheres[i];
+		// Hits are reported as the measurement itself rather than the individual
+		// sphere or edge that was struck, so clicking anywhere on a line selects the
+		// whole thing. The spheres stay separately pickable for dragging, because
+		// they are registered as interactables in their own right.
+		let hits = [];
 
-			sphere.raycast(raycaster, intersects);
+		for (let sphere of this.spheres) {
+			sphere.raycast(raycaster, hits);
+		}
+
+		if (this.showEdges) {
+			for (let edge of this.edges) {
+				if (edge.visible) {
+					edge.raycast(raycaster, hits);
+				}
+			}
 		}
 
 		// recalculate distances because they are not necessarely correct
 		// for scaled objects.
 		// see https://github.com/mrdoob/three.js/issues/5827
 		// TODO: remove this once the bug has been fixed
-		for (let i = 0; i < intersects.length; i++) {
-			let I = intersects[i];
-			I.distance = raycaster.ray.origin.distanceTo(I.point);
+		for (let hit of hits) {
+			intersects.push({
+				distance: raycaster.ray.origin.distanceTo(hit.point),
+				point: hit.point,
+				object: this,
+			});
 		}
+
 		intersects.sort(function (a, b) { return a.distance - b.distance; });
 	};
 

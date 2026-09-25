@@ -425,7 +425,7 @@ export class Sidebar{
 
 			this.viewer.inputHandler.deselectAll();
 
-			if(object instanceof Volume){
+			if(object instanceof Volume || object instanceof Measure){
 				this.viewer.inputHandler.toggleSelection(object);
 			}
 
@@ -434,6 +434,16 @@ export class Sidebar{
 
 		tree.on("deselect_node.jstree", (e, data) => {
 			propertiesPanel.set(null);
+		});
+
+		// jstree allows renaming in place, but the new label lived only in the tree.
+		// Write it back so the name is what gets saved to a project.
+		tree.on("rename_node.jstree", (e, data) => {
+			let object = data.node.data;
+
+			if(object && object.name !== undefined){
+				object.name = data.text;
+			}
 		});
 
 		tree.on("delete_node.jstree", (e, data) => {

@@ -102,7 +102,12 @@ function loadMeasurement(viewer, data){
 	measure.showCircle = data.showCircle;
 	measure.showAzimuth = data.showAzimuth;
 	measure.showEdges = data.showEdges;
-	// color
+	measure.maxMarkers = data.maxMarkers ?? Number.MAX_SAFE_INTEGER;
+	measure.class = data.class;
+
+	if(data.color){
+		measure.color.fromArray(data.color);
+	}
 
 	for(const point of data.points){
 		const pos = new THREE.Vector3(...point);

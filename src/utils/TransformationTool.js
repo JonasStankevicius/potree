@@ -19,7 +19,11 @@ export class TransformationTool {
 				this.viewer.inputHandler.blacklist.delete(selected);
 			}
 
-			this.selection = e.selection;
+			// The gizmo scales and rotates around a bounding box, which only volumes
+			// have. Measurements are selectable too, but are edited by dragging their
+			// vertices, so they are kept out of the selection here - that also stops
+			// them being blacklisted from hover picking below.
+			this.selection = e.selection.filter(selected => selected.boundingBox !== undefined);
 
 			for(let selected of this.selection){
 				this.viewer.inputHandler.blacklist.add(selected);
