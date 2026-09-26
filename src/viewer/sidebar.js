@@ -1295,7 +1295,7 @@ export class Sidebar{
 
 		this.dom.find('#sldFOV').slider({
 			value: this.viewer.getFOV(),
-			min: 20,
+			min: 5,
 			max: 100,
 			step: 1,
 			slide: (event, ui) => { this.viewer.setFOV(ui.value); }
@@ -1544,6 +1544,38 @@ export class Sidebar{
 				$('#sldMinNodeSize').slider({value: this.viewer.getMinNodeSize()});
 			});
 			$('#lblMinNodeSize').html(parseInt(this.viewer.getMinNodeSize()));
+		}
+
+		{ // UNIFORM POINT SIZE
+			let chkUniform = $('#chkUniformPointSize');
+			let sldUniformSize = $('#sldUniformPointSize');
+			let lblUniformSize = $('#lblUniformPointSize');
+
+			chkUniform.click(() => {
+				this.viewer.setUseUniformPointSize(chkUniform.prop("checked"));
+			});
+
+			sldUniformSize.slider({
+				value: this.viewer.getUniformPointSize(),
+				min: 0.1,
+				max: 10,
+				step: 0.1,
+				slide: (event, ui) => { this.viewer.setUniformPointSize(ui.value); }
+			});
+
+			let update = () => {
+				let enabled = this.viewer.getUseUniformPointSize();
+
+				chkUniform.prop("checked", enabled);
+				lblUniformSize.html(this.viewer.getUniformPointSize().toFixed(1));
+				sldUniformSize.slider({
+					value: this.viewer.getUniformPointSize(),
+					disabled: !enabled
+				});
+			};
+			this.viewer.addEventListener('uniform_point_size_changed', update);
+
+			update();
 		}
 
 		{

@@ -1,6 +1,6 @@
 
 import * as THREE from "../../libs/three.js/build/three.module.js";
-import {ClipTask, ClipMethod, CameraMode, LengthUnits, ElevationGradientRepeat} from "../defines.js";
+import {ClipTask, ClipMethod, CameraMode, LengthUnits, ElevationGradientRepeat, PointSizeType} from "../defines.js";
 import {Renderer} from "../PotreeRenderer.js";
 import {PotreeRenderer} from "./PotreeRenderer.js";
 import {EDLRenderer} from "./EDLRenderer.js";
@@ -136,6 +136,9 @@ export class Viewer extends EventDispatcher{
 		this.edlRadius = 1.4;
 		this.edlOpacity = 1.0;
 		this.useEDL = false;
+		this.useHQ = true;
+		this.useUniformPointSize = true;
+		this.uniformPointSize = 3.0;
 		this.description = "";
 
 		this.classifications = ClassificationScheme.DEFAULT;
@@ -294,7 +297,7 @@ export class Viewer extends EventDispatcher{
 		}
 
 		{ // set defaults
-			this.setFOV(60);
+			this.setFOV(20);
 			this.setEDLEnabled(false);
 			this.setEDLRadius(1.4);
 			this.setEDLStrength(0.4);
@@ -304,7 +307,7 @@ export class Viewer extends EventDispatcher{
 			this.setPointBudget(1*1000*1000);
 			this.setShowBoundingBox(false);
 			this.setFreeze(false);
-			this.setControls(this.orbitControls);
+			this.setControls(this.earthControls);
 			this.setBackground('gradient');
 
 			this.scaleFactor = 1;
@@ -577,6 +580,28 @@ export class Viewer extends EventDispatcher{
 
 	getPointBudget () {
 		return Potree.pointBudget;
+	};
+
+	setUseUniformPointSize (value) {
+		if (this.useUniformPointSize !== value) {
+			this.useUniformPointSize = value;
+			this.dispatchEvent({'type': 'uniform_point_size_changed', 'viewer': this});
+		}
+	};
+
+	getUseUniformPointSize () {
+		return this.useUniformPointSize;
+	};
+
+	setUniformPointSize (value) {
+		if (this.uniformPointSize !== value) {
+			this.uniformPointSize = value;
+			this.dispatchEvent({'type': 'uniform_point_size_changed', 'viewer': this});
+		}
+	};
+
+	getUniformPointSize () {
+		return this.uniformPointSize;
 	};
 
 	setShowAnnotations (value) {
@@ -1639,6 +1664,30 @@ export class Viewer extends EventDispatcher{
 			pointcloud.minimumNodePixelSize = this.minNodeSize;
 
 			let material = pointcloud.material;
+
+			// a uniform point size ignores local point density, in contrast to
+			// the adaptive/attenuated sizing that scales points by node spacing
+			if (this.useUniformPointSize) {
+				if (material._sizeBeforeUniform === undefined) {
+					material._sizeBeforeUniform = {
+						pointSizeType: material.pointSizeType,
+						size: material.size,
+						minSize: material.minSize,
+					};
+				}
+
+				material.pointSizeType = PointSizeType.FIXED;
+				material.size = this.uniformPointSize;
+				// minSize would otherwise clamp small points back up
+				material.minSize = Math.min(this.uniformPointSize, material._sizeBeforeUniform.minSize);
+			} else if (material._sizeBeforeUniform !== undefined) {
+				let previous = material._sizeBeforeUniform;
+
+				material.pointSizeType = previous.pointSizeType;
+				material.size = previous.size;
+				material.minSize = previous.minSize;
+				material._sizeBeforeUniform = undefined;
+			}
 
 			material.uniforms.uFilterReturnNumberRange.value = this.filterReturnNumberRange;
 			material.uniforms.uFilterNumberOfReturnsRange.value = this.filterNumberOfReturnsRange;
