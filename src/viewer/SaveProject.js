@@ -72,6 +72,7 @@ function createVolumeData(volume){
 		visible: volume.visible,
 		clip: volume.clip,
 		class: volume.class,
+		color: volume.color,
 	};
 
 	return data;

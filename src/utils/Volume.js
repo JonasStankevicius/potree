@@ -15,6 +15,7 @@ export class Volume extends THREE.Object3D {
 		//console.log(this.constructor.name);
 
 		this._clip = args.clip || false;
+		this._class = null;
 		this._visible = true;
 		this.showVolumeLabel = true;
 		this._modifiable = args.modifiable || true;
@@ -46,6 +47,19 @@ export class Volume extends THREE.Object3D {
 			this.addEventListener('deselect', e => {});
 		}
 
+	}
+
+	// The label a volume is listed under, so a change has to reach the scene tree.
+	get class(){
+		return this._class;
+	}
+
+	set class(value){
+		if(this._class !== value){
+			this._class = value;
+
+			this.dispatchEvent({type: "class_changed", object: this});
+		}
 	}
 
 	get visible(){

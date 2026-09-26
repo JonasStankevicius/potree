@@ -71,10 +71,42 @@ export function installAnnotationPanel(viewer){
 		}
 	};
 
+	// a single-marker measurement is a labelled point, not a line
+	const kindOf = (annotation) => {
+		if(!(annotation instanceof Potree.Measure)){
+			return 'volume';
+		}
+
+		return annotation.maxMarkers === 1 ? 'point' : 'line';
+	};
+
 	const colorNameOf = (annotation) => {
 		return (annotation instanceof Potree.Measure)
 			? annotation.colorName
 			: annotation.color;
+	};
+
+	// The colour of a class restored from a project is read back off the first
+	// annotation carrying it, so a reloaded project keeps the colours it was saved
+	// with. A volume that predates colour being saved falls back to a random one.
+	const savedColorNameOf = (annotation) => {
+		const existing = colorNameOf(annotation);
+		if(typeof existing === 'string' && existing in _colorKeywords){
+			return existing;
+		}
+
+		if(annotation instanceof Potree.Measure){
+			const hex = annotation.color.getHex();
+			const match = Object.keys(_colorKeywords).find(name => _colorKeywords[name] === hex);
+
+			if(match){
+				return match;
+			}
+		}
+
+		const names = Object.keys(_colorKeywords);
+
+		return names[Math.floor(Math.random() * names.length)];
 	};
 
 	let sectionAnnotation = $(`
@@ -183,10 +215,13 @@ export function installAnnotationPanel(viewer){
 			}
 
 			if(!(annotation.class in existingClasses)){
-				// class came back from a loaded project: give it a colour and list it
-				let names = Object.keys(_colorKeywords);
-				existingClasses[annotation.class] = names[Math.floor(Math.random() * names.length)];
+				// class came back from a loaded project: list it, and keep whatever
+				// colour it was saved with. Without syncing availability here the
+				// colour dropdown stays greyed out, because it was disabled back when
+				// no class existed yet.
+				existingClasses[annotation.class] = savedColorNameOf(annotation);
 				classDropdown.append(new Option(annotation.class, annotation.class));
+				syncColorAvailability();
 			}
 
 			const colorName = existingClasses[annotation.class];
@@ -210,7 +245,7 @@ export function installAnnotationPanel(viewer){
 				colorDropdown.val(colorName);
 			}
 
-			const kind = (annotation instanceof Potree.Measure) ? 'line' : 'volume';
+			const kind = kindOf(annotation);
 
 			if(annotation.class){
 				$("#selectedAnnotationInfo").text(`${kind} - class: ${annotation.class}, color: ${colorName}`);

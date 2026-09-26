@@ -369,8 +369,15 @@ export class MeasuringTool extends EventDispatcher{
 			for(let sphere of measure.spheres){
 				let distance = camera.position.distanceTo(sphere.getWorldPosition(new THREE.Vector3()));
 				let pr = Utils.projectedRadius(1, camera, distance, clientWidth, clientHeight);
-				let scale = (15 / pr);
+
+				// a selected measurement draws larger, brightened markers. A point has no
+				// edge to thicken, so this is the only selection cue it gets, and the
+				// class colour is left alone by highlighting through emissive instead.
+				let scale = measure.selected ? (22 / pr) : (15 / pr);
 				sphere.scale.set(scale, scale, scale);
+
+				let emissive = measure.selected ? 0.4 : 0.0;
+				sphere.material.emissive.setScalar(emissive);
 			}
 
 			// labels

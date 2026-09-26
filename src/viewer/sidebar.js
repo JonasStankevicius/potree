@@ -44,6 +44,221 @@ export class Sidebar{
 		return element;
 	}
 
+	// The project as it would be written to disk.
+	projectAsJSON(){
+		return JSON.stringify(Potree.saveProject(this.viewer), null, "\t");
+	}
+
+	// Hands the project to the browser as a download. In Electron that opens a save
+	// dialog; in a browser it lands in the downloads folder. Also the fallback
+	// whenever writing a picked file is not permitted.
+	downloadProject(dataString){
+		const url = window.URL.createObjectURL(new Blob([dataString], {type: 'application/json'}));
+		const link = document.createElement("a");
+
+		link.href = url;
+		link.download = "potree.json";
+
+		// the link has to be in the document for the click to count, and the URL has
+		// to outlive the click or the download is cancelled before it starts
+		link.style.display = "none";
+		document.body.appendChild(link);
+		link.click();
+
+		setTimeout(() => {
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+		}, 1000);
+	}
+
+	// Electron's renderer runs with node integration, so a remembered path can be
+	// written directly, with no dialog and no permission to ask for.
+	nodeFS(){
+		try{
+			return (typeof require === "function") ? require("fs") : null;
+		}catch(e){
+			return null;
+		}
+	}
+
+	// Where the open project lives, once that is known: a File System Access handle
+	// from a save dialog, or a path. PotreeDesktop can set {path} when it loads a
+	// project off disk, which is what makes the first CTRL+S silent there.
+	get projectFile(){
+		return this.viewer.projectFile ?? null;
+	}
+
+	set projectFile(value){
+		this.viewer.projectFile = value;
+	}
+
+	projectFileName(target){
+		if(target.path){
+			return target.path.split(/[\\/]/).pop();
+		}
+
+		return target.handle.name;
+	}
+
+	// Writes the project over a file that is already known, without prompting.
+	// Returns false if it could not be written, so the caller can fall back to
+	// asking where to put it.
+	async writeProjectTo(target, dataString){
+		if(target.path){
+			const fs = this.nodeFS();
+
+			if(fs === null){
+				return false;
+			}
+
+			try{
+				fs.writeFileSync(target.path, dataString);
+
+				return true;
+			}catch(e){
+				this.viewer.postError(`failed to save project: ${e.message}`);
+
+				return false;
+			}
+		}
+
+		if(!await this.canWriteTo(target.handle)){
+			return false;
+		}
+
+		try{
+			const writable = await target.handle.createWritable();
+
+			await writable.write(dataString);
+			await writable.close();
+
+			return true;
+		}catch(e){
+			return false;
+		}
+	}
+
+	// CTRL+S: save over the file the project came from or was last saved to, and
+	// only ask where to put it when there is no such file yet.
+	async saveProject(){
+		const target = this.projectFile;
+
+		if(target !== null){
+			const saved = await this.writeProjectTo(target, this.projectAsJSON());
+
+			if(saved){
+				this.viewer.postMessage(`potree project saved to ${this.projectFileName(target)}`, {duration: 3000});
+
+				return;
+			}
+		}
+
+		await this.saveProjectAs();
+	}
+
+	// Picking a file grants read access only. Writing needs the readwrite
+	// permission on top, which some hosts - notably Electron without a permission
+	// handler - refuse outright.
+	async canWriteTo(handle){
+		if(typeof handle.queryPermission !== "function"){
+			return true;
+		}
+
+		const options = {mode: "readwrite"};
+
+		try{
+			if(await handle.queryPermission(options) === "granted"){
+				return true;
+			}
+
+			if(typeof handle.requestPermission !== "function"){
+				return false;
+			}
+
+			return await handle.requestPermission(options) === "granted";
+		}catch(e){
+			return false;
+		}
+	}
+
+	// Opens a real save dialog through the File System Access API where writing
+	// through it is actually permitted, and otherwise downloads the project.
+	// Note that a refused write still leaves the empty file the picker created.
+	async saveProjectAs(){
+		const dataString = this.projectAsJSON();
+
+		if(typeof window.showSaveFilePicker !== "function"){
+			this.downloadProject(dataString);
+
+			return;
+		}
+
+		let handle = null;
+
+		try{
+			handle = await window.showSaveFilePicker({
+				suggestedName: "potree.json",
+				types: [{
+					description: "Potree project",
+					accept: {"application/json": [".json"]},
+				}],
+			});
+		}catch(e){
+			// the dialog was dismissed
+			return;
+		}
+
+		// Writing is attempted before asking for permission, because picking a file
+		// normally carries the right to write it, and asking needs a user gesture
+		// that opening the dialog has already spent. Only a refused write is worth
+		// a permission prompt.
+		const write = async () => {
+			const writable = await handle.createWritable();
+
+			await writable.write(dataString);
+			await writable.close();
+		};
+
+		try{
+			await write();
+			this.projectFile = {handle};
+
+			return;
+		}catch(e){
+			// falls through to the permission prompt
+		}
+
+		if(await this.canWriteTo(handle)){
+			try{
+				await write();
+				this.projectFile = {handle};
+
+				return;
+			}catch(e){
+				// falls through to the download below
+			}
+		}
+
+		this.downloadProject(dataString);
+		this.viewer.postMessage("not allowed to write the chosen file, saved to your downloads instead", {duration: 5000});
+	}
+
+	// CTRL+S (CMD+S on mac) saves the project. Bound on the window rather than on
+	// the render area so it works while the sidebar has focus, and the default is
+	// suppressed to keep the browser from offering to save the page itself.
+	initSaveShortcut(){
+		window.addEventListener("keydown", (e) => {
+			const isSave = (e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.altKey;
+
+			if(!isSave){
+				return;
+			}
+
+			e.preventDefault();
+			this.saveProject();
+		});
+	}
+
 	init(){
 
 		this.initAccordion();
@@ -54,6 +269,7 @@ export class Sidebar{
 		this.initFilters();
 		this.initClippingTool();
 		this.initSettings();
+		this.initSaveShortcut();
 		
 		$('#potree_version_number').html(Potree.version.major + "." + Potree.version.minor + Potree.version.suffix);
 	}
@@ -349,12 +565,10 @@ export class Sidebar{
 
 			let elDownloadPotree = elExport.find("img[name=potree_export_button]").parent();
 			elDownloadPotree.click( (event) => {
+				// the anchor download is replaced by the save dialog, same as CTRL+S
+				event.preventDefault();
 
-				let data = Potree.saveProject(this.viewer);
-				let dataString = JSON.stringify(data, null, "\t")
-
-				let url = window.URL.createObjectURL(new Blob([dataString], {type: 'data:application/octet-stream'}));
-				elDownloadPotree.attr('href', url);
+				this.saveProjectAs();
 			});
 		}
 
@@ -443,6 +657,12 @@ export class Sidebar{
 
 			if(object && object.name !== undefined){
 				object.name = data.text;
+
+				// a classed annotation is listed by its class, so show that again
+				// rather than the name that was just typed
+				if(object.class){
+					tree.jstree(true).set_text(data.node, object.class);
+				}
 			}
 		});
 
@@ -574,16 +794,32 @@ export class Sidebar{
 			});
 		};
 
+		// A labelled annotation is listed under its class rather than under the
+		// generic tool name it was created with ("Point", "Distance", "Volume").
+		let listLabel = (object) => object.class ? object.class : object.name;
+
+		// set_text rather than rename_node, which would fire the rename handler
+		// below and write the class back over the object's own name
+		let trackClass = (object, nodeID) => {
+			object.addEventListener("class_changed", () => {
+				tree.jstree(true).set_text(nodeID, listLabel(object));
+			});
+		};
+
 		let onMeasurementAdded = (e) => {
 			let measurement = e.measurement;
 			let icon = Utils.getMeasurementIcon(measurement);
-			createNode(measurementID, measurement.name, icon, measurement);
+			let node = createNode(measurementID, listLabel(measurement), icon, measurement);
+
+			trackClass(measurement, node);
 		};
 
 		let onVolumeAdded = (e) => {
 			let volume = e.volume;
 			let icon = Utils.getMeasurementIcon(volume);
-			let node = createNode(measurementID, volume.name, icon, volume);
+			let node = createNode(measurementID, listLabel(volume), icon, volume);
+
+			trackClass(volume, node);
 
 			volume.addEventListener("visibility_changed", () => {
 				if(volume.visible){

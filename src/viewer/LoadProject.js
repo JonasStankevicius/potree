@@ -135,6 +135,7 @@ function loadVolume(viewer, data){
 	volume.visible = data.visible;
 	volume.clip = data.clip;
 	volume.class = data.class;
+	volume.color = data.color;
 
 	viewer.scene.addVolume(volume);
 }

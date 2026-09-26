@@ -301,6 +301,7 @@ export class Measure extends THREE.Object3D {
 
 		this.sphereGeometry = new THREE.SphereGeometry(0.4, 10, 10);
 		this.color = new THREE.Color(0xff0000);
+		this._class = null;
 		this.selected = false;
 
 		// Having select/deselect listeners is also what makes the InputHandler treat
@@ -341,6 +342,19 @@ export class Measure extends THREE.Object3D {
 
 		this.add(this.azimuth.node);
 
+	}
+
+	// The label a measurement is listed under, so a change has to reach the scene tree.
+	get class(){
+		return this._class;
+	}
+
+	set class(value){
+		if(this._class !== value){
+			this._class = value;
+
+			this.dispatchEvent({type: "class_changed", measurement: this});
+		}
 	}
 
 	createSphereMaterial () {
@@ -623,12 +637,21 @@ export class Measure extends THREE.Object3D {
 		} else if (this.points.length === 1) {
 			let point = this.points[0];
 			let position = point.position;
-			this.spheres[0].position.copy(position);
+			let sphere = this.spheres[0];
+
+			sphere.position.copy(position);
+
+			// the material copied the colour when the marker was created, so an
+			// assigned class colour only shows up if it is copied over again here
+			sphere.material.color.copy(this.color);
 
 			{ // coordinate labels
 				let coordinateLabel = this.coordinateLabels[0];
-				
-				let msg = position.toArray().map(p => Utils.addCommas(p.toFixed(2))).join(" / ");
+
+				// a labelled point is identified by its class, not by where it is
+				let msg = this.class
+					? this.class
+					: position.toArray().map(p => Utils.addCommas(p.toFixed(2))).join(" / ");
 				coordinateLabel.setText(msg);
 
 				coordinateLabel.visible = this.showCoordinates;
