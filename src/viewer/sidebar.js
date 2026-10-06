@@ -278,6 +278,18 @@ export class Sidebar{
 
 	initToolbar(){
 
+		// A measurement the tool started by itself, after the previous one was
+		// finished, is selected the same way one started from a button is.
+		this.measuringTool.addEventListener('insertion_repeated', (e) => {
+			let measurementsRoot = $("#jstree_scene").jstree().get_json("measurements");
+			let jsonNode = measurementsRoot.children.find(child => child.data.uuid === e.measure.uuid);
+
+			if(jsonNode){
+				$.jstree.reference(jsonNode.id).deselect_all();
+				$.jstree.reference(jsonNode.id).select_node(jsonNode.id);
+			}
+		});
+
 		// ANGLE
 		let elToolbar = $('#tools');
 		elToolbar.append(this.createToolIcon(

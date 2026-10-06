@@ -304,38 +304,90 @@ export class MeasuringTool extends EventDispatcher{
 
 		this.scene.add(measure);
 
-		let cancel = {
-			removeLastMarker: measure.maxMarkers > 3,
-			callback: null
+		// Insertion repeats: once a measurement is finished, another of the same kind
+		// starts straight away, so labelling many points or lines does not mean going
+		// back to the toolbar each time. A right click with nothing placed yet is what
+		// ends the run.
+		const inputHandler = this.viewer.inputHandler;
+
+		// distance and area take any number of markers and are finished by a right
+		// click; everything else is finished by placing its last marker
+		const isPolyline = measure.maxMarkers > 3;
+		const minMarkers = isPolyline ? 2 : 1;
+
+		// the last marker is still attached to the cursor, so it does not count
+		const placedMarkers = () => measure.points.length - 1;
+
+		const stop = () => {
+			domElement.removeEventListener('mouseup', onMouseUp, false);
+			this.viewer.removeEventListener('cancel_insertions', onCancel);
 		};
 
-		let insertionCallback = (e) => {
-			if (e.button === THREE.MOUSE.LEFT) {
-				measure.addMarker(measure.points[measure.points.length - 1].position.clone());
-
-				if (measure.points.length >= measure.maxMarkers) {
-					cancel.callback();
-				}
-
-				this.viewer.inputHandler.startDragging(
-					measure.spheres[measure.spheres.length - 1]);
-			} else if (e.button === THREE.MOUSE.RIGHT) {
-				cancel.callback();
+		const discard = () => {
+			if (inputHandler.drag && measure.spheres.includes(inputHandler.drag.object)) {
+				inputHandler.drag = null;
 			}
+
+			this.viewer.scene.removeMeasurement(measure);
 		};
 
-		cancel.callback = e => {
-			if (cancel.removeLastMarker) {
+		// Ends the insertion with whatever has been placed so far. Returns whether
+		// that left a measurement behind.
+		const finish = () => {
+			stop();
+
+			if (placedMarkers() < minMarkers) {
+				discard();
+
+				return false;
+			}
+
+			if (isPolyline) {
 				measure.removeMarker(measure.points.length - 1);
 			}
-			domElement.removeEventListener('mouseup', insertionCallback, false);
-			this.viewer.removeEventListener('cancel_insertions', cancel.callback);
+
+			return true;
 		};
 
-		if (measure.maxMarkers > 1) {
-			this.viewer.addEventListener('cancel_insertions', cancel.callback);
-			domElement.addEventListener('mouseup', insertionCallback, false);
-		}
+		const repeat = () => {
+			const next = this.startInsertion(args);
+
+			this.dispatchEvent({
+				type: 'insertion_repeated',
+				measure: next
+			});
+		};
+
+		const onMouseUp = (e) => {
+			if (e.button === THREE.MOUSE.LEFT) {
+				if (measure.points.length >= measure.maxMarkers) {
+					// that click dropped the final marker
+					stop();
+					repeat();
+
+					return;
+				}
+
+				measure.addMarker(measure.points[measure.points.length - 1].position.clone());
+
+				inputHandler.startDragging(
+					measure.spheres[measure.spheres.length - 1]);
+			} else if (e.button === THREE.MOUSE.RIGHT) {
+				// only a finished line or area carries on to the next one; a right
+				// click before that is a cancel
+				if (finish() && isPolyline) {
+					repeat();
+				}
+			}
+		};
+
+		// another tool was started
+		const onCancel = () => {
+			finish();
+		};
+
+		this.viewer.addEventListener('cancel_insertions', onCancel);
+		domElement.addEventListener('mouseup', onMouseUp, false);
 
 		measure.addMarker(new THREE.Vector3(0, 0, 0));
 		this.viewer.inputHandler.startDragging(
